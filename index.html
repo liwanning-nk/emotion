@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情绪日K线监测系统【本地前端版】</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+    <style>
+        *{box-sizing: border-box;margin:0;padding:0;}
+        body{font-family:system-ui, -apple-system, sans-serif;background:#f8fafc;padding:16px;max-width:1200px;margin:0 auto;color:#1e293b;}
+        .container{background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);}
+        .header{margin-bottom:20px;}
+        h1{font-size:24px;margin-bottom:8px;}
+        .tip{color:#64748b;font-size:14px;}
+        .input-area{margin-bottom:20px;}
+        textarea{width:100%;padding:14px;border:1px solid #e2e8f0;border-radius:10px;font-size:16px;resize:vertical;min-height:100px;margin-bottom:12px;}
+        .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+        button{padding:10px 16px;border:none;border-radius:8px;font-size:15px;cursor:pointer;}
+        .btn-submit{background:#2563eb;color:white;}
+        .btn-predict{background:#10b981;color:white;}
+        .btn-export{background:#7c3aed;color:white;}
+        .btn-clear{background:#ef4444;color:white;}
+        button:disabled{opacity:0.5;cursor:not-allowed;}
+        .chart-wrap{width:100%;height:580px;margin-bottom:24px;}
+        .predict-result{background:#eff6ff;padding:14px;border-radius:10px;margin-bottom:20px;}
+        .record-list{max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:12px;}
+        .record-item{padding:10px;border-bottom:1px solid #f1f5f9;}
+        .record-item:last-child{border-bottom:none;}
+        .time-text{font-size:12px;color:#94a3b8;}
+        .loading{color:#2563eb;text-align:center;padding:20px;}
+        .error{color:#ef4444;text-align:center;padding:20px;}
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <div class="header">
+            <h1>情绪日K线监测系统【本地前端版】</h1>
+            <p class="tip">每日一根情绪蜡烛：open=起床，close=睡前，low=当日最低，high=当日最高；数据保存在浏览器本地，不上传服务器</p >
+        </div>
+
+        <div class="input-area">
+            <textarea v-model="inputText" placeholder="记录当下心情..."></textarea>
+            <div class="btn-group">
+                <button class="btn-submit" @click="addRecord" :disabled="loading">提交心情记录</button>
+                <button class="btn-predict" @click="doPredict" :disabled="loading">AI预测下一日情绪K线</button>
+                <button class="btn-export" @click="exportChart">导出K线图PNG</button>
+                <button class="btn-clear" @click="clearAll">清空全部记录</button>
+            </div>
+            <div v-if="loading" class="loading">处理中...</div>
+            <div v-if="errorMsg" class="error">{{errorMsg}}</div>
+        </div>
+
+        <div v-if="predictResult" class="predict-result">
+            <h4>🔮 AI预测下一日情绪K线</h4>
+            <p>开盘(起床): {{predictResult.pred_open}}</p >
+            <p>收盘(睡前): {{predictResult.pred_close}}</p >
+            <p>当日最低: {{predictResult.pred_low}}</p >
+            <p>当日最高: {{predictResult.pred_high}}</p >
+            <p style="color:#666;font-size:13px;">{{predictResult.note}}</p >
+        </div>
+
+        <div class="chart-wrap" ref="chartRef"></div>
+
+        <h3>原始心情明细记录</h3>
+        <div class="record-list">
+            <div class="record-item" v-for="r in recordList" :key="r.id">
+                <div>{{r.text}}</div>
+                <div class="time-text">分数:{{r.score.toFixed(2)}} | {{r.create_time}}</div>
+            </div>
+            <div v-if="recordList.length===0">暂无记录，请提交心情</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const {createApp, ref, onMounted, onUnmounted} = Vue;
+
+// 模拟文本情绪打分
+function analyzeText(text){
+    const seed = text.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
+    const rand = Math.sin(seed) * 10000 % 1;
+    let score = 2 + rand * 6;
+    return Math.max(0, Math.min(10, score));
+}
+
+// 浏览器LSTM模型
+let lstmModel = null;
+async function buildModel(){
+    lstmModel = tf.sequential();
+    lstmModel.add(tf.layers.lstm({units:64, returnSequences:false, inputShape:[null,4]}));
+    lstmModel.add(tf.layers.dense({units:4}));
+    lstmModel.compile({optimizer:'adam', loss:'meanSquaredError'});
+}
+
+createApp({
+    setup(){
+        const inputText = ref("");
+        const recordList = ref([]);
+        const klineData = ref([]);
+        const loading = ref(false);
+        const errorMsg = ref("");
+        const predictResult = ref(null);
+        const chartRef = ref(null);
+        let myChart = null;
+
+        // 读取本地存储
+        function loadFromStorage(){
+            const raw = localStorage.getItem("emotion_records");
+            if(raw){
+                recordList.value = JSON.parse(raw);
+            }
+            rebuildKline();
+        }
+
+        // 保存到本地
+        function saveToStorage(){
+            localStorage.setItem("emotion_records", JSON.stringify(recordList.value));
+        }
+
+        // 聚合生成每日K线
+        function rebuildKline(){
+            const groups = {};
+            for(let r of recordList.value){
+                const day = r.create_time.split(" ")[0];
+                if(!groups[day]) groups[day]=[];
+                groups[day].push(r.score);
+            }
+            const arr = [];
+            for(let day of Object.keys(groups).sort()){
+                const scores = groups[day].sort((a,b)=>a-b);
+                const open = scores[0];
+                const close = scores[scores.length-1];
+                const low = Math.min(...scores);
+                const high = Math.max(...scores);
+                arr.push([day, open, close, low, high]);
+            }
+            klineData.value = arr;
+            renderChart();
+        }
+
+        // 渲染K线图
+        function renderChart(){
+            if(!myChart) return;
+            const option = {
+                title:{text:"情绪日K线图",left:"center"},
+                tooltip:{
+                    trigger:"axis",
+                    formatter: function(params){
+                        const d = params[0].data;
+                        return `日期：${d[0]}<br/>开盘(起床):${d[1].toFixed(2)}<br/>收盘(睡前):${d[2].toFixed(2)}<br/>最低:${d[3].toFixed(2)}<br/>最高:${d[4].toFixed(2)}`;
+                    }
+                },
+                xAxis:{type:"category",data:klineData.value.map(i=>i[0]),axisLabel:{rotate:30}},
+                yAxis:{type:"value",min:0,max:10,name:"情绪得分(0消极~10积极)"},
+                series:[{
+                    name:"情绪K线",
+                    type:"candlestick",
+                    data:klineData.value,
+                    itemStyle:{color:"#22c55e",color0:"#ef4444"}
+                }]
+            };
+            myChart.setOption(option);
+        }
+
+        // 添加一条记录
+        const addRecord = async ()=>{
+            if(!inputText.value.trim()){
+                errorMsg.value="请输入心情描述";
+                return;
+            }
+            loading.value=true;
+            errorMsg.value="";
+            const score = analyzeText(inputText.value);
+            const newRec = {
+                id:Date.now(),
+                text:inputText.value.trim(),
+                score:score,
+                create_time:new Date().toLocaleString("zh-CN",{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+            };
+            recordList.value.push(newRec);
+            saveToStorage();
+            rebuildKline();
+            inputText.value="";
+            predictResult.value=null;
+            loading.value=false;
+        }
+
+        // LSTM预测下一天4个值
+        const doPredict = async ()=>{
+            loading.value=true;
+            errorMsg.value="";
+            predictResult.value=null;
+            try{
+                if(klineData.value.length <3){
+                    throw new Error("需要至少3天的记录才可以预测");
+                }
+                const seq = klineData.value.slice(-10).map(item=>[item[1],item[2],item[3],item[4]]);
+                const tensor = tf.tensor3d([seq]);
+                const pred = await lstmModel.predict(tensor).data();
+                let open_p = Math.max(0,Math.min(10,pred[0]));
+                let close_p = Math.max(0,Math.min(10,pred[1]));
+                let low_p = Math.max(0,Math.min(10,pred[2]));
+                let high_p = Math.max(0,Math.min(10,pred[3]));
+                low_p = Math.min(low_p,open_p,close_p);
+                high_p = Math.max(high_p,open_p,close_p);
+                predictResult.value={
+                    pred_open:open_p.toFixed(2),
+                    pred_close:close_p.toFixed(2),
+                    pred_low:low_p.toFixed(2),
+                    pred_high:high_p.toFixed(2),
+                    note:"预测下一日情绪K线：open起床，close睡前，low当日最低，high当日最高"
+                }
+            }catch(e){
+                errorMsg.value = e.message;
+            }finally{
+                loading.value=false;
+            }
+        }
+
+        const clearAll = ()=>{
+            localStorage.removeItem("emotion_records");
+            recordList.value=[];
+            klineData.value=[];
+            predictResult.value=null;
+            renderChart();
+        }
+
+        const exportChart = ()=>{
+            const url = myChart.getDataURL({type:"png",pixelRatio:2});
+            const a = document.createElement("a");
+            a.href=url;
+            a.download="情绪日K线.png";
+            a.click();
+        }
+
+        onMounted(async ()=>{
+            await buildModel();
+            myChart = echarts.init(chartRef.value);
+            loadFromStorage();
+            window.addEventListener('resize',()=>myChart?.resize());
+        })
+        onUnmounted(()=>{
+            myChart?.dispose();
+        })
+
+        return {
+            inputText, recordList, klineData, loading, errorMsg, predictResult, chartRef,
+            addRecord, doPredict, clearAll, exportChart
+        }
+    }
+}).mount("#app");
+</script>
+</body>
+</html>
