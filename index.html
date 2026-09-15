@@ -3,219 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情绪日K线监测系统【手动4值版】</title>
+    <title>情绪日K线监测系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
     <style>
-        *{box-sizing: border-box;margin:0;padding:0;}
-        body{
-            font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background:#f1f5f9;
-            padding:20px 16px;
-            max-width:1100px;
-            margin:0 auto;
-            color:#1e293b;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .container{
-            background:#ffffff;
-            border-radius:20px;
-            padding:32px 28px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.06);
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background-color: #f7f9fc;
+            color: #222;
+            padding: 24px 16px;
+            max-width: 1000px;
+            margin: 0 auto;
         }
-        .header{margin-bottom:28px;}
-        h1{
-            font-size:26px;
-            margin-bottom:10px;
-            color:#0f172a;
+        .wrap {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 28px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
-        .tip{
-            color:#64748b;
-            font-size:14px;
-            line-height:1.6;
+        h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
-        .input-area{margin-bottom:28px;}
-        .input-row{
-            display:grid;
-            grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
-            gap:16px;
+        .desc {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        @media (max-width: 768px) {
+            .input-group {
+                grid-template-columns: repeat(2,1fr);
+            }
+        }
+        .input-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .input-item label {
+            font-size: 13px;
+            color: #555;
+        }
+        input {
+            padding: 9px 11px;
+            border: 1px solid #dde1e8;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4080ff;
+        }
+        .btn-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        button {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn-submit {background:#4080ff; color:#fff;}
+        .btn-predict {background:#00b42a; color:#fff;}
+        .btn-export {background:#722ed1; color:#fff;}
+        .btn-clear {background:#f53f3f; color:#fff;}
+        button:disabled {opacity:0.4; cursor:default;}
+        .tip-msg {
+            padding:10px 12px;
+            border-radius:6px;
+            font-size:13px;
+        }
+        .loading {color:#4080ff; text-align:center;}
+        .error {background:#fff2f2;color:#f53f3f;}
+        .warn-card {
+            padding:16px;
+            border-radius:8px;
             margin-bottom:20px;
         }
-        .input-item{
-            display:flex;
-            flex-direction:column;
-            gap:8px;
+        .warn-low {background:#fff2f2; border:1px solid #f53f3f; color:#c92c2c;}
+        .warn-normal {background:#f0f7ff; border:1px solid #4080ff; color:#1d53d9;}
+        .warn-high {background:#fff7e6; border:1px solid #ff7d00; color:#d46b08;}
+        .warn-card h4 {
+            font-size:15px;
+            margin-bottom:8px;
         }
-        .input-item label{
+        .warn-card p {
             font-size:14px;
-            font-weight:500;
-            color:#475569;
+            margin:4px 0;
         }
-        input{
-            padding:12px 14px;
-            border:1px solid #cbd5e1;
-            border-radius:10px;
-            font-size:15px;
-            transition:0.2s;
-        }
-        input:focus{
-            outline:none;
-            border-color:#3b82f6;
-            box-shadow:0 0 0 3px rgba(59,130,246,0.15);
-        }
-        .btn-group{
-            display:flex;
-            gap:12px;
-            flex-wrap:wrap;
-            margin-bottom:16px;
-        }
-        button{
-            padding:11px 18px;
-            border:none;
-            border-radius:10px;
-            font-size:15px;
-            font-weight:500;
-            cursor:pointer;
-            transition:0.2s;
-        }
-        button:hover{
-            transform:translateY(-1px);
-        }
-        .btn-submit{background:#2563eb;color:white;}
-        .btn-predict{background:#059669;color:white;}
-        .btn-export{background:#7c3aed;color:white;}
-        .btn-clear{background:#dc2626;color:white;}
-        button:disabled{
-            opacity:0.5;
-            cursor:not-allowed;
-            transform:none;
-        }
-        .chart-wrap{
+        .chart-box {
             width:100%;
-            height:520px;
-            margin-bottom:28px;
-            border-radius:12px;
-            background:#fafbfc;
-            padding:8px;
+            height:480px;
+            border-radius:8px;
+            background:#fafbfd;
+            margin-bottom:24px;
         }
-        .predict-result{
-            background:#eff6ff;
-            padding:20px;
-            border-radius:14px;
-            margin-bottom:28px;
-            border:1px solid #dbeafe;
+        .history-title {
+            font-size:16px;
+            margin-bottom:10px;
         }
-        .predict-result h4{
-            margin-bottom:12px;
-            color:#1d4ed8;
-        }
-        .predict-result p{
-            margin:6px 0;
-            font-size:15px;
-        }
-        .record-title{
-            font-size:18px;
-            margin-bottom:12px;
-            color:#334155;
-        }
-        .record-list{
-            max-height:340px;
+        .history-list {
+            max-height:280px;
             overflow-y:auto;
-            border:1px solid #e2e8f0;
-            border-radius:12px;
-            padding:14px;
-            background:#fafbfc;
+            border:1px solid #eee;
+            border-radius:8px;
         }
-        .record-item{
-            padding:12px 10px;
-            border-bottom:1px solid #f1f5f9;
+        .history-item {
+            padding:10px 12px;
+            border-bottom:1px solid #f3f4f6;
+            font-size:14px;
         }
-        .record-item:last-child{border-bottom:none;}
-        .loading{
-            color:#2563eb;
+        .history-item:last-child {border-bottom:none;}
+        .empty-tip {
+            padding:20px;
             text-align:center;
-            padding:24px;
-            font-size:15px;
-        }
-        .error{
-            color:#dc2626;
-            text-align:center;
-            padding:16px;
-            background:#fef2f2;
-            border-radius:10px;
+            color:#999;
+            font-size:13px;
         }
     </style>
 </head>
 <body>
 <div id="app">
-    <div class="container">
-        <div class="header">
-            <h1>情绪日K线监测系统【手动4值版】</h1>
-            <p class="tip">填写4个情绪数值(0‑10)：open开盘(起床)、close收盘(睡前)、low当日最低、high当日最高；数据保存在浏览器本地</p >
-        </div>
+    <div class="wrap">
+        <h1>情绪日K线监测系统</h1>
+        <p class="desc">填写整数情绪数值(0‑10)：open开盘(起床)、close收盘(睡前)、low当日最低、high当日最高；数据保存在浏览器本地</p >
 
-        <div class="input-area">
-            <div class="input-row">
-                <div class="input-item">
-                    <label>开盘 open(起床)</label>
-                    <input v-model.number="openVal" type="number" min="0" max="10" step="0.1" placeholder="例如：4.2">
-                </div>
-                <div class="input-item">
-                    <label>收盘 close(睡前)</label>
-                    <input v-model.number="closeVal" type="number" min="0" max="10" step="0.1" placeholder="例如：6.5">
-                </div>
-                <div class="input-item">
-                    <label>最低 low</label>
-                    <input v-model.number="lowVal" type="number" min="0" max="10" step="0.1" placeholder="例如：2.1">
-                </div>
-                <div class="input-item">
-                    <label>最高 high</label>
-                    <input v-model.number="highVal" type="number" min="0" max="10" step="0.1" placeholder="例如：8.3">
-                </div>
+        <div class="input-group">
+            <div class="input-item">
+                <label>开盘 open(起床)</label>
+                <input v-model.number="openVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
             </div>
-            <div class="btn-group">
-                <button class="btn-submit" @click="addRecord" :disabled="loading">提交今日K线记录</button>
-                <button class="btn-predict" @click="doPredict" :disabled="loading">AI预测下一日情绪K线</button>
-                <button class="btn-export" @click="exportChart">导出K线图PNG</button>
-                <button class="btn-clear" @click="clearAll">清空全部记录</button>
+            <div class="input-item">
+                <label>收盘 close(睡前)</label>
+                <input v-model.number="closeVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
             </div>
-            <div v-if="loading" class="loading">处理中...</div>
-            <div v-if="errorMsg" class="error">{{errorMsg}}</div>
+            <div class="input-item">
+                <label>最低 low</label>
+                <input v-model.number="lowVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
+            </div>
+            <div class="input-item">
+                <label>最高 high</label>
+                <input v-model.number="highVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
+            </div>
         </div>
 
-        <div v-if="predictResult" class="predict-result">
-            <h4>🔮 AI预测下一日情绪K线</h4>
-            <p>开盘(起床): {{predictResult.pred_open}}</p >
-            <p>收盘(睡前): {{predictResult.pred_close}}</p >
-            <p>当日最低: {{predictResult.pred_low}}</p >
-            <p>当日最高: {{predictResult.pred_high}}</p >
-            <p style="color:#666;font-size:13px;margin-top:8px;">预测结果仅供参考</p >
+        <div class="btn-bar">
+            <button class="btn-submit" @click="addRecord" :disabled="loading">提交今日K线记录</button>
+            <button class="btn-predict" @click="doWarn" :disabled="loading || recordList.length < 3">情绪状态预警</button>
+            <button class="btn-export" @click="exportChart">导出K线图PNG</button>
+            <button class="btn-clear" @click="clearAll">清空全部记录</button>
         </div>
 
-        <div class="chart-wrap" ref="chartRef"></div>
+        <div v-if="loading" class="tip-msg loading">处理中...</div>
+        <div v-if="errorMsg" class="tip-msg error">{{errorMsg}}</div>
 
-        <h3 class="record-title">历史K线记录</h3>
-        <div class="record-list">
-            <div class="record-item" v-for="r in recordList" :key="r.id">
+        <div v-if="warnResult" :class="['warn-card', warnResult.cssClass]">
+            <h4>🔔 情绪预警：{{warnResult.status}}</h4>
+            <p>{{warnResult.tip}}</p >
+            <p style="font-size:12px;opacity:0.8;margin-top:6px">基于历史情绪变化分析，仅供参考</p >
+        </div>
+
+        <div class="chart-box" ref="chartRef"></div>
+
+        <h3 class="history-title">历史K线记录</h3>
+        <div class="history-list">
+            <div class="history-item" v-for="r in recordList" :key="r.id">
                 <div>日期：{{r.date}}</div>
                 <div>open:{{r.open}} | close:{{r.close}} | low:{{r.low}} | high:{{r.high}}</div>
             </div>
-            <div v-if="recordList.length===0">暂无记录，请输入4个数值提交</div>
+            <div v-if="recordList.length===0" class="empty-tip">暂无记录，请输入4个整数提交</div>
         </div>
     </div>
 </div>
 
 <script>
-const {createApp, ref, onMounted, onUnmounted} = Vue;
-
-// LSTM模型
-let lstmModel = null;
-async function buildModel(){
-    lstmModel = tf.sequential();
-    lstmModel.add(tf.layers.lstm({units:64, returnSequences:false, inputShape:[null,4]}));
-    lstmModel.add(tf.layers.dense({units:4}));
-    lstmModel.compile({optimizer:'adam', loss:'meanSquaredError'});
-}
+const {createApp, ref, onMounted, onUnmounted, nextTick} = Vue;
 
 createApp({
     setup(){
@@ -227,35 +206,11 @@ createApp({
         const klineData = ref([]);
         const loading = ref(false);
         const errorMsg = ref("");
-        const predictResult = ref(null);
+        const warnResult = ref(null);
         const chartRef = ref(null);
         let myChart = null;
 
-        // 读取本地存储
-        function loadFromStorage(){
-            const raw = localStorage.getItem("emotion_kline_records");
-            if(raw){
-                recordList.value = JSON.parse(raw);
-            }
-            rebuildKline();
-        }
-
-        // 保存本地
-        function saveToStorage(){
-            localStorage.setItem("emotion_kline_records", JSON.stringify(recordList.value));
-        }
-
-        // 组装K线数据给echarts蜡烛图
-        function rebuildKline(){
-            const arr = [];
-            for(let r of recordList.value){
-                arr.push([r.date, r.open, r.close, r.low, r.high]);
-            }
-            klineData.value = arr;
-            renderChart();
-        }
-
-        // 渲染蜡烛K线
+        // 渲染图表，必须等DOM就绪
         function renderChart(){
             if(!myChart) return;
             const option = {
@@ -264,7 +219,7 @@ createApp({
                     trigger:"axis",
                     formatter: function(params){
                         const d = params[0].data;
-                        return `日期：${d[0]}<br/>开盘(起床):${d[1].toFixed(2)}<br/>收盘(睡前):${d[2].toFixed(2)}<br/>最低:${d[3].toFixed(2)}<br/>最高:${d[4].toFixed(2)}`;
+                        return `日期：${d[0]}<br/>开盘(起床):${d[1]}<br/>收盘(睡前):${d[2]}<br/>最低:${d[3]}<br/>最高:${d[4]}`;
                     }
                 },
                 xAxis:{type:"category",data:klineData.value.map(i=>i[0]),axisLabel:{rotate:30}},
@@ -273,16 +228,69 @@ createApp({
                     name:"情绪K线",
                     type:"candlestick",
                     data:klineData.value,
-                    itemStyle:{color:"#22c55e",color0:"#ef4444"}
+                    itemStyle:{color:"#00b42a",color0:"#f53f3f"}
                 }]
             };
             myChart.setOption(option);
         }
 
-        // 提交一条K线记录
+        function rebuildKline(){
+            const arr = [];
+            for(let r of recordList.value){
+                arr.push([r.date, r.open, r.close, r.low, r.high]);
+            }
+            klineData.value = arr;
+            // 关键：nextTick等待DOM更新完毕再画图
+            nextTick(()=>{
+                renderChart();
+            })
+        }
+
+        function loadFromStorage(){
+            const raw = localStorage.getItem("emotion_kline_records");
+            if(raw){
+                recordList.value = JSON.parse(raw);
+            }
+            rebuildKline();
+        }
+
+        function saveToStorage(){
+            localStorage.setItem("emotion_kline_records", JSON.stringify(recordList.value));
+        }
+
+        // 情绪预警分析：只输出状态文本，不预测K线数值
+        function emotionWarn(records){
+            const closes = records.map(x=>x.close);
+            const avg = closes.reduce((s,v)=>s+v,0)/closes.length;
+            const last = closes[closes.length-1];
+            const trend = last - closes[closes.length-2];
+
+            let status, tip, cssClass;
+            if(avg <= 3){
+                status = "低迷状态";
+                tip = "近期情绪整体偏低，建议多休息，减少内耗，必要时寻求倾诉。";
+                cssClass = "warn-low";
+            }else if(avg >=7){
+                status = "亢奋状态";
+                tip = "情绪处于高位，容易冲动疲惫，注意控制压力，避免过度消耗。";
+                cssClass = "warn-high";
+            }else{
+                status = "平稳状态";
+                tip = "情绪波动适中，整体状态稳定，继续保持即可。";
+                cssClass = "warn-normal";
+            }
+            // 叠加趋势提示
+            if(trend < -2){
+                tip += " 注意：近期情绪有明显下滑趋势。";
+            }else if(trend > 2){
+                tip += " 注意：近期情绪有明显抬升趋势。";
+            }
+            return {status,tip,cssClass};
+        }
+
         const addRecord = async ()=>{
             if(openVal.value===null || closeVal.value===null || lowVal.value===null || highVal.value===null){
-                errorMsg.value="请完整填写open、close、low、high四个数值";
+                errorMsg.value="请完整填写open、close、low、high四个整数";
                 return;
             }
             const o = Number(openVal.value);
@@ -290,7 +298,7 @@ createApp({
             const l = Number(lowVal.value);
             const h = Number(highVal.value);
             if(l>o || l>c || h<o || h<c){
-                errorMsg.value="校验错误：low必须小于等于open/close；high必须大于等于open/close";
+                errorMsg.value="校验错误：low必须≤open/close；high必须≥open/close";
                 return;
             }
             loading.value=true;
@@ -307,41 +315,22 @@ createApp({
             recordList.value.push(newRec);
             saveToStorage();
             rebuildKline();
-            // 清空输入框
             openVal.value=null;
             closeVal.value=null;
             lowVal.value=null;
             highVal.value=null;
-            predictResult.value=null;
+            warnResult.value=null;
             loading.value=false;
         }
 
-        // LSTM预测下一天4值
-        const doPredict = async ()=>{
+        const doWarn = ()=>{
             loading.value=true;
             errorMsg.value="";
-            predictResult.value=null;
             try{
-                if(klineData.value.length <3){
-                    throw new Error("需要至少3条历史K线记录才可以预测");
-                }
-                const seq = klineData.value.slice(-10).map(item=>[item[1],item[2],item[3],item[4]]);
-                const tensor = tf.tensor3d([seq]);
-                const pred = await lstmModel.predict(tensor).data();
-                let open_p = Math.max(0,Math.min(10,pred[0]));
-                let close_p = Math.max(0,Math.min(10,pred[1]));
-                let low_p = Math.max(0,Math.min(10,pred[2]));
-                let high_p = Math.max(0,Math.min(10,pred[3]));
-                low_p = Math.min(low_p,open_p,close_p);
-                high_p = Math.max(high_p,open_p,close_p);
-                predictResult.value={
-                    pred_open:open_p.toFixed(2),
-                    pred_close:close_p.toFixed(2),
-                    pred_low:low_p.toFixed(2),
-                    pred_high:high_p.toFixed(2)
-                }
+                const res = emotionWarn(recordList.value);
+                warnResult.value = res;
             }catch(e){
-                errorMsg.value = e.message;
+                errorMsg.value = "预警分析失败：" + e.message;
             }finally{
                 loading.value=false;
             }
@@ -351,8 +340,8 @@ createApp({
             localStorage.removeItem("emotion_kline_records");
             recordList.value=[];
             klineData.value=[];
-            predictResult.value=null;
-            renderChart();
+            warnResult.value=null;
+            rebuildKline();
         }
 
         const exportChart = ()=>{
@@ -363,8 +352,7 @@ createApp({
             a.click();
         }
 
-        onMounted(async ()=>{
-            await buildModel();
+        onMounted(()=>{
             myChart = echarts.init(chartRef.value);
             loadFromStorage();
             window.addEventListener('resize',()=>myChart?.resize());
@@ -375,8 +363,8 @@ createApp({
 
         return {
             openVal,closeVal,lowVal,highVal,
-            recordList, klineData, loading, errorMsg, predictResult, chartRef,
-            addRecord, doPredict, clearAll, exportChart
+            recordList, klineData, loading, errorMsg, warnResult, chartRef,
+            addRecord, doWarn, clearAll, exportChart
         }
     }
 }).mount("#app");
