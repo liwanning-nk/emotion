@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情绪日K线监测系统【本地前端版】</title>
+    <title>情绪日K线监测系统【手动4值版】</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
@@ -15,7 +15,9 @@
         h1{font-size:24px;margin-bottom:8px;}
         .tip{color:#64748b;font-size:14px;}
         .input-area{margin-bottom:20px;}
-        textarea{width:100%;padding:14px;border:1px solid #e2e8f0;border-radius:10px;font-size:16px;resize:vertical;min-height:100px;margin-bottom:12px;}
+        .input-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+        .input-item{display:flex;flex-direction:column;gap:4px;}
+        input{padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;}
         .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
         button{padding:10px 16px;border:none;border-radius:8px;font-size:15px;cursor:pointer;}
         .btn-submit{background:#2563eb;color:white;}
@@ -37,14 +39,31 @@
 <div id="app">
     <div class="container">
         <div class="header">
-            <h1>情绪日K线监测系统【本地前端版】</h1>
-            <p class="tip">每日一根情绪蜡烛：open=起床，close=睡前，low=当日最低，high=当日最高；数据保存在浏览器本地，不上传服务器</p >
+            <h1>情绪日K线监测系统【手动4值版】</h1>
+            <p class="tip">填写4个情绪数值(0‑10)：open开盘(起床)、close收盘(睡前)、low当日最低、high当日最高；数据保存在浏览器本地</p >
         </div>
 
         <div class="input-area">
-            <textarea v-model="inputText" placeholder="记录当下心情..."></textarea>
+            <div class="input-row">
+                <div class="input-item">
+                    <label>开盘 open(起床)</label>
+                    <input v-model.number="openVal" type="number" min="0" max="10" step="0.1">
+                </div>
+                <div class="input-item">
+                    <label>收盘 close(睡前)</label>
+                    <input v-model.number="closeVal" type="number" min="0" max="10" step="0.1">
+                </div>
+                <div class="input-item">
+                    <label>最低 low</label>
+                    <input v-model.number="lowVal" type="number" min="0" max="10" step="0.1">
+                </div>
+                <div class="input-item">
+                    <label>最高 high</label>
+                    <input v-model.number="highVal" type="number" min="0" max="10" step="0.1">
+                </div>
+            </div>
             <div class="btn-group">
-                <button class="btn-submit" @click="addRecord" :disabled="loading">提交心情记录</button>
+                <button class="btn-submit" @click="addRecord" :disabled="loading">提交今日K线记录</button>
                 <button class="btn-predict" @click="doPredict" :disabled="loading">AI预测下一日情绪K线</button>
                 <button class="btn-export" @click="exportChart">导出K线图PNG</button>
                 <button class="btn-clear" @click="clearAll">清空全部记录</button>
@@ -59,18 +78,18 @@
             <p>收盘(睡前): {{predictResult.pred_close}}</p >
             <p>当日最低: {{predictResult.pred_low}}</p >
             <p>当日最高: {{predictResult.pred_high}}</p >
-            <p style="color:#666;font-size:13px;">{{predictResult.note}}</p >
+            <p style="color:#666;font-size:13px;">预测结果仅供参考</p >
         </div>
 
         <div class="chart-wrap" ref="chartRef"></div>
 
-        <h3>原始心情明细记录</h3>
+        <h3>历史K线记录</h3>
         <div class="record-list">
             <div class="record-item" v-for="r in recordList" :key="r.id">
-                <div>{{r.text}}</div>
-                <div class="time-text">分数:{{r.score.toFixed(2)}} | {{r.create_time}}</div>
+                <div>日期：{{r.date}}</div>
+                <div>open:{{r.open}} | close:{{r.close}} | low:{{r.low}} | high:{{r.high}}</div>
             </div>
-            <div v-if="recordList.length===0">暂无记录，请提交心情</div>
+            <div v-if="recordList.length===0">暂无记录，请输入4个数值提交</div>
         </div>
     </div>
 </div>
@@ -78,15 +97,7 @@
 <script>
 const {createApp, ref, onMounted, onUnmounted} = Vue;
 
-// 模拟文本情绪打分
-function analyzeText(text){
-    const seed = text.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-    const rand = Math.sin(seed) * 10000 % 1;
-    let score = 2 + rand * 6;
-    return Math.max(0, Math.min(10, score));
-}
-
-// 浏览器LSTM模型
+// LSTM模型
 let lstmModel = null;
 async function buildModel(){
     lstmModel = tf.sequential();
@@ -97,7 +108,10 @@ async function buildModel(){
 
 createApp({
     setup(){
-        const inputText = ref("");
+        const openVal = ref(null);
+        const closeVal = ref(null);
+        const lowVal = ref(null);
+        const highVal = ref(null);
         const recordList = ref([]);
         const klineData = ref([]);
         const loading = ref(false);
@@ -108,40 +122,29 @@ createApp({
 
         // 读取本地存储
         function loadFromStorage(){
-            const raw = localStorage.getItem("emotion_records");
+            const raw = localStorage.getItem("emotion_kline_records");
             if(raw){
                 recordList.value = JSON.parse(raw);
             }
             rebuildKline();
         }
 
-        // 保存到本地
+        // 保存本地
         function saveToStorage(){
-            localStorage.setItem("emotion_records", JSON.stringify(recordList.value));
+            localStorage.setItem("emotion_kline_records", JSON.stringify(recordList.value));
         }
 
-        // 聚合生成每日K线
+        // 组装K线数据给echarts蜡烛图
         function rebuildKline(){
-            const groups = {};
-            for(let r of recordList.value){
-                const day = r.create_time.split(" ")[0];
-                if(!groups[day]) groups[day]=[];
-                groups[day].push(r.score);
-            }
             const arr = [];
-            for(let day of Object.keys(groups).sort()){
-                const scores = groups[day].sort((a,b)=>a-b);
-                const open = scores[0];
-                const close = scores[scores.length-1];
-                const low = Math.min(...scores);
-                const high = Math.max(...scores);
-                arr.push([day, open, close, low, high]);
+            for(let r of recordList.value){
+                arr.push([r.date, r.open, r.close, r.low, r.high]);
             }
             klineData.value = arr;
             renderChart();
         }
 
-        // 渲染K线图
+        // 渲染蜡烛K线
         function renderChart(){
             if(!myChart) return;
             const option = {
@@ -165,37 +168,51 @@ createApp({
             myChart.setOption(option);
         }
 
-        // 添加一条记录
+        // 提交一条K线记录
         const addRecord = async ()=>{
-            if(!inputText.value.trim()){
-                errorMsg.value="请输入心情描述";
+            if(openVal.value===null || closeVal.value===null || lowVal.value===null || highVal.value===null){
+                errorMsg.value="请完整填写open、close、low、high四个数值";
+                return;
+            }
+            const o = Number(openVal.value);
+            const c = Number(closeVal.value);
+            const l = Number(lowVal.value);
+            const h = Number(highVal.value);
+            if(l>o || l>c || h<o || h<c){
+                errorMsg.value="校验错误：low必须小于等于open/close；high必须大于等于open/close";
                 return;
             }
             loading.value=true;
             errorMsg.value="";
-            const score = analyzeText(inputText.value);
+            const today = new Date().toLocaleDateString("zh‑CN");
             const newRec = {
                 id:Date.now(),
-                text:inputText.value.trim(),
-                score:score,
-                create_time:new Date().toLocaleString("zh-CN",{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+                date: today,
+                open: o,
+                close: c,
+                low: l,
+                high: h
             };
             recordList.value.push(newRec);
             saveToStorage();
             rebuildKline();
-            inputText.value="";
+            // 清空输入框
+            openVal.value=null;
+            closeVal.value=null;
+            lowVal.value=null;
+            highVal.value=null;
             predictResult.value=null;
             loading.value=false;
         }
 
-        // LSTM预测下一天4个值
+        // LSTM预测下一天4值
         const doPredict = async ()=>{
             loading.value=true;
             errorMsg.value="";
             predictResult.value=null;
             try{
                 if(klineData.value.length <3){
-                    throw new Error("需要至少3天的记录才可以预测");
+                    throw new Error("需要至少3条历史K线记录才可以预测");
                 }
                 const seq = klineData.value.slice(-10).map(item=>[item[1],item[2],item[3],item[4]]);
                 const tensor = tf.tensor3d([seq]);
@@ -210,8 +227,7 @@ createApp({
                     pred_open:open_p.toFixed(2),
                     pred_close:close_p.toFixed(2),
                     pred_low:low_p.toFixed(2),
-                    pred_high:high_p.toFixed(2),
-                    note:"预测下一日情绪K线：open起床，close睡前，low当日最低，high当日最高"
+                    pred_high:high_p.toFixed(2)
                 }
             }catch(e){
                 errorMsg.value = e.message;
@@ -221,7 +237,7 @@ createApp({
         }
 
         const clearAll = ()=>{
-            localStorage.removeItem("emotion_records");
+            localStorage.removeItem("emotion_kline_records");
             recordList.value=[];
             klineData.value=[];
             predictResult.value=null;
@@ -247,7 +263,8 @@ createApp({
         })
 
         return {
-            inputText, recordList, klineData, loading, errorMsg, predictResult, chartRef,
+            openVal,closeVal,lowVal,highVal,
+            recordList, klineData, loading, errorMsg, predictResult, chartRef,
             addRecord, doPredict, clearAll, exportChart
         }
     }
