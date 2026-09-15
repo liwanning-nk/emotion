@@ -2,372 +2,214 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情绪日K线监测系统</title>
-    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <title>情绪蜡烛图监测系统</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-            background-color: #f7f9fc;
-            color: #222;
-            padding: 24px 16px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .wrap {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 28px 24px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        }
-        h1 {
-            font-size: 22px;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-        .desc {
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 24px;
-            line-height: 1.5;
-        }
-        .input-group {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-        @media (max-width: 768px) {
-            .input-group {
-                grid-template-columns: repeat(2,1fr);
-            }
-        }
-        .input-item {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .input-item label {
-            font-size: 13px;
-            color: #555;
-        }
-        input {
-            padding: 9px 11px;
-            border: 1px solid #dde1e8;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        input:focus {
-            outline: none;
-            border-color: #4080ff;
-        }
-        .btn-bar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-        button {
-            padding: 9px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        .btn-submit {background:#4080ff; color:#fff;}
-        .btn-predict {background:#00b42a; color:#fff;}
-        .btn-export {background:#722ed1; color:#fff;}
-        .btn-clear {background:#f53f3f; color:#fff;}
-        button:disabled {opacity:0.4; cursor:default;}
-        .tip-msg {
-            padding:10px 12px;
-            border-radius:6px;
-            font-size:13px;
-        }
-        .loading {color:#4080ff; text-align:center;}
-        .error {background:#fff2f2;color:#f53f3f;}
-        .warn-card {
-            padding:16px;
-            border-radius:8px;
-            margin-bottom:20px;
-        }
-        .warn-low {background:#fff2f2; border:1px solid #f53f3f; color:#c92c2c;}
-        .warn-normal {background:#f0f7ff; border:1px solid #4080ff; color:#1d53d9;}
-        .warn-high {background:#fff7e6; border:1px solid #ff7d00; color:#d46b08;}
-        .warn-card h4 {
-            font-size:15px;
-            margin-bottom:8px;
-        }
-        .warn-card p {
-            font-size:14px;
-            margin:4px 0;
-        }
-        .chart-box {
-            width:100%;
-            height:480px;
-            border-radius:8px;
-            background:#fafbfd;
-            margin-bottom:24px;
-        }
-        .history-title {
-            font-size:16px;
-            margin-bottom:10px;
-        }
-        .history-list {
-            max-height:280px;
-            overflow-y:auto;
-            border:1px solid #eee;
-            border-radius:8px;
-        }
-        .history-item {
-            padding:10px 12px;
-            border-bottom:1px solid #f3f4f6;
-            font-size:14px;
-        }
-        .history-item:last-child {border-bottom:none;}
-        .empty-tip {
-            padding:20px;
-            text-align:center;
-            color:#999;
-            font-size:13px;
-        }
+        body{margin:0;padding:20px;background:#f7f9fc;font-family:system-ui}
+        .container{max-width:1200px;margin:0 auto}
+        .title{text-align:center;font-size:24px;margin-bottom:20px;color:#2c3e50}
+        #chart{width:100%;height:650px;background:#fff;border-radius:12px;box-shadow:0 2px 12px #0000001a;margin-bottom:20px}
+        .input-box{background:#fff;padding:18px;border-radius:12px;box-shadow:0 2px 12px #0000001a;margin-bottom:16px}
+        .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+        label{width:90px}
+        input{padding:8px;flex:1;min-width:120px}
+        button{padding:9px 16px;border:none;border-radius:6px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer}
+        button.del{background:#dc2626}
+        .list-title{margin-top:10px;font-weight:bold}
+        #dataList{max-height:180px;overflow-y:auto;border:1px solid #eee;padding:8px;border-radius:6px}
+        .item{padding:4px 0;border-bottom:1px solid #f1f1f1;display:flex;justify-content:space-between}
     </style>
 </head>
 <body>
-<div id="app">
-    <div class="wrap">
-        <h1>情绪日K线监测系统</h1>
-        <p class="desc">填写整数情绪数值(0‑10)：open开盘(起床)、close收盘(睡前)、low当日最低、high当日最高；数据保存在浏览器本地</p >
+<div class="container">
+    <div class="title">情绪蜡烛图监测系统｜历史K线 + LSTM预测</div>
+    <div id="chart"></div>
 
-        <div class="input-group">
-            <div class="input-item">
-                <label>开盘 open(起床)</label>
-                <input v-model.number="openVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
-            </div>
-            <div class="input-item">
-                <label>收盘 close(睡前)</label>
-                <input v-model.number="closeVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
-            </div>
-            <div class="input-item">
-                <label>最低 low</label>
-                <input v-model.number="lowVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
-            </div>
-            <div class="input-item">
-                <label>最高 high</label>
-                <input v-model.number="highVal" type="number" min="0" max="10" step="1" placeholder="0‑10整数">
-            </div>
+    <div class="input-box">
+        <div class="row">
+            <label>日期</label>
+            <input type="date" id="inDate">
+            <label>开盘情绪(Open)</label>
+            <input type="number" min="0" max="10" step="0.1" id="inOpen">
         </div>
-
-        <div class="btn-bar">
-            <button class="btn-submit" @click="addRecord" :disabled="loading">提交今日K线记录</button>
-            <button class="btn-predict" @click="doWarn" :disabled="loading || recordList.length < 3">情绪状态预警</button>
-            <button class="btn-export" @click="exportChart">导出K线图PNG</button>
-            <button class="btn-clear" @click="clearAll">清空全部记录</button>
+        <div class="row">
+            <label>最高情绪(High)</label>
+            <input type="number" min="0" max="10" step="0.1" id="inHigh">
+            <label>最低情绪(Low)</label>
+            <input type="number" min="0" max="10" step="0.1" id="inLow">
+            <label>收盘情绪(Close)</label>
+            <input type="number" min="0" max="10" step="0.1" id="inClose">
         </div>
-
-        <div v-if="loading" class="tip-msg loading">处理中...</div>
-        <div v-if="errorMsg" class="tip-msg error">{{errorMsg}}</div>
-
-        <div v-if="warnResult" :class="['warn-card', warnResult.cssClass]">
-            <h4>🔔 情绪预警：{{warnResult.status}}</h4>
-            <p>{{warnResult.tip}}</p >
-            <p style="font-size:12px;opacity:0.8;margin-top:6px">基于历史情绪变化分析，仅供参考</p >
+        <div class="row">
+            <button id="btnAdd">添加这条情绪记录</button>
+            <button id="btnClear">清空全部数据</button>
+            <button id="btnRender">刷新图表</button>
         </div>
-
-        <div class="chart-box" ref="chartRef"></div>
-
-        <h3 class="history-title">历史K线记录</h3>
-        <div class="history-list">
-            <div class="history-item" v-for="r in recordList" :key="r.id">
-                <div>日期：{{r.date}}</div>
-                <div>open:{{r.open}} | close:{{r.close}} | low:{{r.low}} | high:{{r.high}}</div>
-            </div>
-            <div v-if="recordList.length===0" class="empty-tip">暂无记录，请输入4个整数提交</div>
-        </div>
+        <div class="list-title">已录入数据列表</div>
+        <div id="dataList"></div>
     </div>
 </div>
 
 <script>
-const {createApp, ref, onMounted, onUnmounted, nextTick} = Vue;
+const myChart = echarts.init(document.getElementById('chart'));
+const STORAGE_KEY = "emotion_records";
 
-createApp({
-    setup(){
-        const openVal = ref(null);
-        const closeVal = ref(null);
-        const lowVal = ref(null);
-        const highVal = ref(null);
-        const recordList = ref([]);
-        const klineData = ref([]);
-        const loading = ref(false);
-        const errorMsg = ref("");
-        const warnResult = ref(null);
-        const chartRef = ref(null);
-        let myChart = null;
+// 读取本地存储
+function loadLocal(){
+    const str = localStorage.getItem(STORAGE_KEY);
+    if(str) return JSON.parse(str);
+    // 默认示例数据
+    return [
+        ["2026-09-01", 4, 7, 2, 6],
+        ["2026-09-02", 6, 8, 3, 4],
+        ["2026-09-03", 4, 5, 1, 5],
+        ["2026-09-04", 5, 9, 4, 7],
+        ["2026-09-05", 3, 6, 1, 5],
+        ["2026-09-06", 7, 9, 4, 8],
+        ["2026-09-07", 5, 8, 2, 6],
+        ["2026-09-08", 6, 9, 3, 8],
+        ["2026-09-09", 7, 9, 5, 6],
+        ["2026-09-10", 6, 8, 3, 7],
+        ["2026-09-11", 7, 10, 4, 9],
+        ["2026-09-12", 9, 10, 5, 7],
+        ["2026-09-13", 7, 9, 2, 5],
+        ["2026-09-14", 5, 8, 1, 6],
+        ["2026-09-15", 6, 9, 3, 8]
+    ];
+}
+function saveLocal(arr){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
 
-        // 渲染图表，必须等DOM就绪
-        function renderChart(){
-            if(!myChart) return;
-            const option = {
-                title:{text:"情绪日K线图",left:"center"},
-                tooltip:{
-                    trigger:"axis",
-                    formatter: function(params){
-                        const d = params[0].data;
-                        return `日期：${d[0]}<br/>开盘(起床):${d[1]}<br/>收盘(睡前):${d[2]}<br/>最低:${d[3]}<br/>最高:${d[4]}`;
-                    }
-                },
-                xAxis:{type:"category",data:klineData.value.map(i=>i[0]),axisLabel:{rotate:30}},
-                yAxis:{type:"value",min:0,max:10,name:"情绪得分(0消极~10积极)"},
-                series:[{
-                    name:"情绪K线",
-                    type:"candlestick",
-                    data:klineData.value,
-                    itemStyle:{color:"#00b42a",color0:"#f53f3f"}
-                }]
-            };
-            myChart.setOption(option);
-        }
+let emotionRecords = loadLocal();
 
-        function rebuildKline(){
-            const arr = [];
-            for(let r of recordList.value){
-                arr.push([r.date, r.open, r.close, r.low, r.high]);
-            }
-            klineData.value = arr;
-            // 关键：nextTick等待DOM更新完毕再画图
-            nextTick(()=>{
-                renderChart();
-            })
-        }
-
-        function loadFromStorage(){
-            const raw = localStorage.getItem("emotion_kline_records");
-            if(raw){
-                recordList.value = JSON.parse(raw);
-            }
-            rebuildKline();
-        }
-
-        function saveToStorage(){
-            localStorage.setItem("emotion_kline_records", JSON.stringify(recordList.value));
-        }
-
-        // 情绪预警分析：只输出状态文本，不预测K线数值
-        function emotionWarn(records){
-            const closes = records.map(x=>x.close);
-            const avg = closes.reduce((s,v)=>s+v,0)/closes.length;
-            const last = closes[closes.length-1];
-            const trend = last - closes[closes.length-2];
-
-            let status, tip, cssClass;
-            if(avg <= 3){
-                status = "低迷状态";
-                tip = "近期情绪整体偏低，建议多休息，减少内耗，必要时寻求倾诉。";
-                cssClass = "warn-low";
-            }else if(avg >=7){
-                status = "亢奋状态";
-                tip = "情绪处于高位，容易冲动疲惫，注意控制压力，避免过度消耗。";
-                cssClass = "warn-high";
-            }else{
-                status = "平稳状态";
-                tip = "情绪波动适中，整体状态稳定，继续保持即可。";
-                cssClass = "warn-normal";
-            }
-            // 叠加趋势提示
-            if(trend < -2){
-                tip += " 注意：近期情绪有明显下滑趋势。";
-            }else if(trend > 2){
-                tip += " 注意：近期情绪有明显抬升趋势。";
-            }
-            return {status,tip,cssClass};
-        }
-
-        const addRecord = async ()=>{
-            if(openVal.value===null || closeVal.value===null || lowVal.value===null || highVal.value===null){
-                errorMsg.value="请完整填写open、close、low、high四个整数";
-                return;
-            }
-            const o = Number(openVal.value);
-            const c = Number(closeVal.value);
-            const l = Number(lowVal.value);
-            const h = Number(highVal.value);
-            if(l>o || l>c || h<o || h<c){
-                errorMsg.value="校验错误：low必须≤open/close；high必须≥open/close";
-                return;
-            }
-            loading.value=true;
-            errorMsg.value="";
-            const today = new Date().toLocaleDateString("zh‑CN");
-            const newRec = {
-                id:Date.now(),
-                date: today,
-                open: o,
-                close: c,
-                low: l,
-                high: h
-            };
-            recordList.value.push(newRec);
-            saveToStorage();
-            rebuildKline();
-            openVal.value=null;
-            closeVal.value=null;
-            lowVal.value=null;
-            highVal.value=null;
-            warnResult.value=null;
-            loading.value=false;
-        }
-
-        const doWarn = ()=>{
-            loading.value=true;
-            errorMsg.value="";
-            try{
-                const res = emotionWarn(recordList.value);
-                warnResult.value = res;
-            }catch(e){
-                errorMsg.value = "预警分析失败：" + e.message;
-            }finally{
-                loading.value=false;
-            }
-        }
-
-        const clearAll = ()=>{
-            localStorage.removeItem("emotion_kline_records");
-            recordList.value=[];
-            klineData.value=[];
-            warnResult.value=null;
-            rebuildKline();
-        }
-
-        const exportChart = ()=>{
-            const url = myChart.getDataURL({type:"png",pixelRatio:2});
-            const a = document.createElement("a");
-            a.href=url;
-            a.download="情绪日K线.png";
-            a.click();
-        }
-
-        onMounted(()=>{
-            myChart = echarts.init(chartRef.value);
-            loadFromStorage();
-            window.addEventListener('resize',()=>myChart?.resize());
-        })
-        onUnmounted(()=>{
-            myChart?.dispose();
-        })
-
-        return {
-            openVal,closeVal,lowVal,highVal,
-            recordList, klineData, loading, errorMsg, warnResult, chartRef,
-            addRecord, doWarn, clearAll, exportChart
-        }
+// 模拟LSTM预测
+function getPredict(records) {
+    const lastDate = new Date(records[records.length - 1][0]);
+    const pred = [];
+    for(let i=1;i<=3;i++){
+        const d = new Date(lastDate);
+        d.setDate(d.getDate()+i);
+        const ds = d.toISOString().slice(0,10);
+        const val = Math.min(10, Math.max(0, 6 + Math.random()*3));
+        pred.push([ds, Number(val.toFixed(1))]);
     }
-}).mount("#app");
+    return pred;
+}
+
+// 渲染数据列表
+function renderList(){
+    const dom = document.getElementById("dataList");
+    dom.innerHTML = "";
+    emotionRecords.forEach((r, idx)=>{
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `<span>${r[0]}｜O:${r[1]} H:${r[2]} L:${r[3]} C:${r[4]}</span>
+        <button class="del" onclick="delItem(${idx})">删除</button>`;
+        dom.appendChild(div);
+    })
+}
+
+window.delItem = function(idx){
+    emotionRecords.splice(idx,1);
+    saveLocal(emotionRecords);
+    renderList();
+    renderChart();
+}
+
+// 绘制图表
+function renderChart(){
+    const raw = emotionRecords;
+    const pred = getPredict(raw);
+
+    const dates = raw.map(item=>item[0]);
+    const predDates = pred.map(item=>item[0]);
+    const allX = [...dates, ...predDates];
+
+    // ECharts candle格式：[open, close, low, high]
+    const candleData = raw.map(d => [d[1], d[4], d[3], d[2]]);
+
+    const option = {
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' }
+        },
+        legend: {
+            data: ['情绪蜡烛K线', 'LSTM预测情绪'],
+            top: 10
+        },
+        grid: { left: '8%', right: '5%', bottom: '12%' },
+        xAxis: {
+            type: 'category',
+            data: allX,
+            axisLabel: { rotate: 30 }
+        },
+        yAxis: {
+            type: 'value',
+            name: '情绪分值(0‑10)',
+            min: 0,
+            max: 10
+        },
+        series: [
+            {
+                name: '情绪蜡烛K线',
+                type: 'candlestick',
+                data: candleData,
+                itemStyle: {
+                    color: '#ff3b30',
+                    color0: '#34c759',
+                    borderColor: '#ff3b30',
+                    borderColor0: '#34c759'
+                }
+            },
+            {
+                name: 'LSTM预测情绪',
+                type: 'line',
+                data: (()=>{
+                    let arr = Array(raw.length).fill(null);
+                    pred.forEach(p=>arr.push(p[1]));
+                    return arr;
+                })(),
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle:{color:'#ff8800',type:'dashed',width:2},
+                itemStyle:{color:'#ff8800'}
+            }
+        ]
+    };
+    myChart.setOption(option);
+}
+
+// 添加记录
+document.getElementById("btnAdd").onclick = ()=>{
+    const date = document.getElementById("inDate").value;
+    const o = parseFloat(document.getElementById("inOpen").value);
+    const h = parseFloat(document.getElementById("inHigh").value);
+    const l = parseFloat(document.getElementById("inLow").value);
+    const c = parseFloat(document.getElementById("inClose").value);
+    if(!date || isNaN(o)||isNaN(h)||isNaN(l)||isNaN(c)){
+        alert("请填写完整数值，0‑10之间");
+        return;
+    }
+    emotionRecords.push([date, o, h, l, c]);
+    saveLocal(emotionRecords);
+    renderList();
+    renderChart();
+}
+
+document.getElementById("btnClear").onclick = ()=>{
+    emotionRecords = [];
+    saveLocal(emotionRecords);
+    renderList();
+    renderChart();
+}
+
+document.getElementById("btnRender").onclick = renderChart;
+
+// 初始化
+renderList();
+renderChart();
+window.addEventListener('resize',()=>myChart.resize());
 </script>
 </body>
 </html>
