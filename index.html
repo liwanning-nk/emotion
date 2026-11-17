@@ -99,7 +99,7 @@
                 <h3>💬金小智知识问答</h3>
                 <input class="input-text" id="askInput" placeholder="输入金融学问题，如：MM理论、CAPM模型">
                 <button id="btnAsk">发起提问</button>
-                <div class="qa-area" id="qaOutput">金小智已就绪，可以向我提问金融专业知识点~<br><small>提示：长时间未使用，请先打开HF后端页面唤醒ZeroGPU服务</small></div>
+                <div class="qa-area" id="qaOutput">金小智已就绪，可以向我提问金融专业知识点~<br><small>💡使用大模型前，请新开标签打开HF后端唤醒服务</small></div>
             </div>
             <div class="panel">
                 <h3>📖课程案例研习</h3>
@@ -143,7 +143,7 @@ const myChart = echarts.init(document.getElementById('chart'));
 const STORAGE_KEY_STUDY = "jinxiaozhi_study_kline_v2";
 const STORAGE_KEY_QUIZ_BANK = "jinxiaozhi_total_quiz_bank";
 
-// ========== 后端API 固定配置，不要修改 ==========
+// ========== HF后端完整公网地址（不要修改！） ==========
 const HF_API_URL = "https://liwanning-nk-finance-study-backend.hf.space/api/predict";
 
 const JinXiaoZhiAgent = {
@@ -224,7 +224,6 @@ ${improveText}
     }
 };
 
-// ========== 学情核心逻辑 ==========
 const STORAGE = localStorage;
 let studyRecords = JSON.parse(STORAGE.getItem(STORAGE_KEY_STUDY)) || [];
 
@@ -365,7 +364,7 @@ document.getElementById("btnAiAnalysis").onclick = ()=>{
     dom.innerText = JinXiaoZhiAgent.analysisStudy(studyRecords);
 }
 
-// ========== 问答模块｜带重试机制 ==========
+//问答模块｜带重试，失败自动切离线
 document.getElementById("btnAsk").onclick = async ()=>{
     const userQ = document.getElementById("askInput").value.trim();
     const qaDom = document.getElementById("qaOutput");
@@ -392,7 +391,7 @@ document.getElementById("btnAsk").onclick = async ()=>{
             retry++;
             console.error("API调用失败",err);
             if(retry <= maxRetry){
-                qaDom.innerText = `⚠️第${retry}次请求失败，正在重试…\n💡提示：请新开标签页打开HF后端页面唤醒ZeroGPU服务`;
+                qaDom.innerText = `⚠️第${retry}次请求失败，正在重试…\n💡提示：新开标签打开HF后端页面唤醒ZeroGPU`;
                 await new Promise(r=>setTimeout(r,2500));
             }else{
                 qaDom.innerText = `⚠️后端接口访问失败，切换离线模式\n${JinXiaoZhiAgent.chat(userQ)}`;
